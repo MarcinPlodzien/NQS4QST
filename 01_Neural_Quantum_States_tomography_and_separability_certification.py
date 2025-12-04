@@ -6,100 +6,148 @@ Created on Thu Dec  4 1 2025
 
 @author: Marcin Plodzien
  
-Quantum State Tomography with NNS / SNNS, non-k-separability, and entanglement certification 
-====================================================================
+ 
+===============================================================================
+Neural Quantum State (NQS) and Structured Neural Quantum State (SNNS) Tomography
+===============================================================================
+ 
+-------------------------------------------------------------------------------
+OVERVIEW
+-------------------------------------------------------------------------------
+This program performs *quantum state tomography* for pure multi-qubit states
+using Neural Network State (NQS) and Structured Neural Network State (SNNS)
+ansatzes. The goal is to reconstruct |psi_target> solely from simulated
+measurement statistics, mimicking realistic experimental conditions.
 
-High-level idea
----------------
-We study how well Neural Network States (NNS) and Structured NNS (SNNS) can
-learn quantum N-qubit pure states only from measurement statistics, mimicking
-a realistic experiment.
+It provides an *operational, data-driven framework* for:
+- Quantum state reconstruction from measurement histograms,
+- Entanglement-depth certification via model comparison,
+- Benchmarking separability constraints on neural architectures.
 
-Pipeline for one target state:
+The NQS acts as a universal variational ansatz for complex-valued wavefunctions,
+while the SNNS introduces architectural connectivity masks that enforce
+partial or full separability among qubits.
 
-  1) Construct a target pure state |psi_target> on N qubits as a vector
-     in the computational (Z) basis. Examples include GHZ, W, Dicke, and
-     states built from Bell pairs.
+-------------------------------------------------------------------------------
+PHYSICS CONTEXT
+-------------------------------------------------------------------------------
+1. Pure State Representation
+----------------------------
+A pure N-qubit quantum state |psi> is defined in the computational (Z) basis as:
 
-  2) Choose local measurement bases for each qubit. A "basis string"
-     of length N encodes a product basis, such as "ZXZYYZ", where
-     each character in {Z, X, Y} is the local Pauli axis.
+    |psi> = sum_{s in {0,1}^N} Psi(s) |s> ,
 
-  3) Generate measurement data:
-       - For each chosen basis, rotate |psi_target> from Z basis into
-         that product basis using only local 2x2 rotations with tensordot.
-       - Obtain probabilities p_target(outcome | basis) via the Born rule.
-       - For finite shots_per_basis:
-           * sample measurement outcomes according to these probabilities,
-             and build empirical frequencies p_data.
-         For "infinite" shots_per_basis:
-           * use p_target directly as p_data.
+where Psi(s) are complex amplitudes. For N > 10, full state tomography
+becomes exponentially hard. The NQS provides a compact, trainable
+representation of Psi(s) using restricted Boltzmann machine (RBM)-like
+architectures.
 
-  4) Define a parametric model |psi_theta> using:
-       - NNS: one global RBM-like network for amplitude and another for phase.
-       - SNNS: a product of NNS blocks defined on partitions of the qubits.
+2. Neural Quantum State Ansatz
+------------------------------
+Each configuration s = (s_1, ..., s_N) in {+1, -1}^N has an associated
+amplitude computed as:
 
-  5) Compute model probabilities p_model(outcome | basis) from |psi_theta>
-     in each basis, again via local basis rotations and Born rule.
+    Psi(s) = exp[ sum_i a_i s_i ] * product_j 2 cosh( b_j + sum_i W_ij s_i )
+             * exp[ i * 2 * pi * Phi(s) ],
 
-  6) Optimize parameters theta by minimizing the negative log-likelihood (NLL):
+where the *amplitude network* (a, b, W) and *phase network* (c, d, U)
+are real-valued RBM layers. The nonlinear phase function is:
 
-         L(theta) = - (1 / B) * sum_b sum_k
-                     [ p_data(k | basis b) * log p_model(k | basis b; theta) ]
+    Phi(s) = sum_i c_i s_i + sum_j f( d_j + sum_i U_ij s_i ),
+    f(x) = (2/pi) * arctan( tanh(x) ) + 0.5 .
 
-     where:
-       - B is the number of distinct bases used in the experiment
-         (either a fixed set, or a pool of random local bases).
+This defines a flexible, differentiable, and fully normalizable quantum state
+parameterization. Gradients are obtained via JAX automatic differentiation.
 
-  7) For diagnostics (not for training), compute the fidelity F between
-     |psi_theta> and |psi_target>.
+3. Structured Neural Network States (SNNS)
+------------------------------------------
+The SNNS ansatz enforces partial separability among qubits via explicit
+partitions of the visible layer:
 
-Measurement bases
------------------
-We support two main regimes.
+    Psi_SNNS(s) = product over blocks B of Psi_B( s_B ).
 
-1) Fixed global bases:
-   - random_bases_per_shot = False
-   - measurement_bases = ["Z"] or ["X", "Y", "Z"], etc.
-   - Each element "X", "Y", or "Z" means: measure all N qubits in that axis.
-   - For each of these bases, we compute p_data and include it in the NLL.
+Each Psi_B is an independent NQS defined on a subset of qubits.
+Examples include bipartite (3|3) or tripartite (2|2|2) partitions.
+Comparing training losses between unconstrained and structured variants
+provides an operational measure of *non-k-separability* and *entanglement depth*.
 
-2) Random local bases with a finite pool:
-   - random_bases_per_shot = True
-   - measurement_bases is interpreted as the set of allowed local axes
-     per qubit, e.g. ["X", "Y", "Z"].
-   - We generate a pool of num_random_bases random basis strings, each of
-     length N, such as "XYZZYX", where each character is in the allowed set.
-   - We compute p_data for each of these basis strings.
-   - For finite shots_per_basis, each basis in the pool gets exactly
-     shots_per_basis projective measurement shots.
+-------------------------------------------------------------------------------
+DATA MODEL AND TRAINING
+-------------------------------------------------------------------------------
+Measurement Simulation
+~~~~~~~~~~~~~~~~~~~~~~~
+Given a known |psi_target>, the script generates synthetic measurement data
+under various experimental regimes:
 
-Filename conventions
---------------------
-  - Measurement data:
-      ./measurement_data/measdata_<case>_<suffix>.txt
+1. Fixed global bases (e.g., Z, X, Y, or combinations):
+   - Each qubit measured in the same axis.
+   - Typical tomography set: {X, Y, Z}^⊗N.
 
-  - Figures:
-      ./figures/fig_nns_snns_loss_<suffix>.png
-      ./figures/fig_nns_snns_fid_<suffix>.png
-      ./figures/fig_nns_snns_topology_<suffix>.png
+2. Random local bases:
+   - Each qubit measured in a randomly chosen axis from {X, Y, Z}.
+   - A pool of num_random_bases distinct product bases is generated.
+   - Each basis string is applied to |psi_target> to produce a probability
+     distribution via the Born rule.
 
-The suffix has the form:
+Finite-shot noise is simulated by multinomial sampling of measurement outcomes.
 
-  N<N>_bases-<bases_tag>_shots-<shots_tag>_nbases-<B>_shpb-<shpb>
+Training Objective
+~~~~~~~~~~~~~~~~~~
+For both NQS and SNNS, parameters are optimized to minimize the
+negative log-likelihood (NLL):
+
+    L(theta) = - (1 / B) * sum_b sum_s
+               [ f_b(s) * log p_model(s | basis_b; theta) ],
 
 where:
+- f_b(s) is the empirical frequency from simulated measurements,
+- p_model(s | basis_b; theta) = |<s|U_b|psi_theta>|^2 is the Born probability
+  in basis b,
+- U_b is the product of local basis rotation operators.
 
-  - N<N>             : number of qubits, e.g. N6
-  - bases_tag        :
-        for fixed bases:       "Z", "XYZ", etc.
-        for random local bases: "rand-XYZ" if allowed axes are {X, Y, Z}
-  - shots_tag        : shots_per_basis number (shots per basis), or "inf"
-                       if shots_per_basis <= 0
-  - nbases           : number of effective bases B used in the NLL
-  - shpb             : shots_per_basis, repeated for clarity
+The optimization is carried out using the Adam algorithm implemented with
+JAX autodiff and just-in-time compilation.
 
+-------------------------------------------------------------------------------
+IMPLEMENTATION DETAILS
+-------------------------------------------------------------------------------
+Framework:      JAX (autodiff and JIT compilation)
+Precision:      64-bit complex arithmetic enabled
+Libraries:      jax, numpy, optax, matplotlib, networkx
+
+Core features:
+---------------
+- Global and structured (partitioned) RBM ansatzes
+- Support for both fixed and random local measurement bases
+- Finite-shot and infinite-statistics regimes
+- Visualization of NQS topology and training convergence
+- Fidelity tracking and basis-by-basis wavefunction comparison
+
+Experiment stages:
+------------------
+1. Build target state (GHZ, W, Dicke, Bell-pair hybrids, etc.)
+2. Generate synthetic measurement data with configurable bases
+3. Train unconstrained and structured models under identical data
+4. Compare negative log-likelihood and fidelity trajectories
+5. Plot results and export reconstructed amplitudes
+
+-------------------------------------------------------------------------------
+ENTANGLEMENT CERTIFICATION STRATEGY
+-------------------------------------------------------------------------------
+By training both unconstrained and partitioned ansatzes on identical
+measurement data, the code measures how separability constraints
+affect reconstruction performance. The operational indicator is the
+NLL gap:
+
+    Delta_L = L_SNNS - L_NNS ,
+
+which increases with entanglement depth.
+This establishes a practical data-driven route to certifying
+non-k-separability without full tomography or entanglement witnesses.
+
+===============================================================================
 """
+
 
 import os
 import copy
