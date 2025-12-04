@@ -3,7 +3,6 @@
 """
 Created on Thu Dec  4 13:30:37 2025
 
-
 @author: Marcin Plodzien
  
 Quantum State Tomography with NNS / SNNS, non-k-separability, and entanglement certification 
@@ -56,8 +55,6 @@ Pipeline for one target state:
 
 Measurement bases
 -----------------
-We support two main regimes.
-
 1) Fixed global bases:
    - random_bases_per_shot = False
    - measurement_bases = ["Z"] or ["X", "Y", "Z"], etc.
@@ -104,11 +101,6 @@ where:
                        if shots_per_basis <= 0
   - nbases           : number of effective bases B used in the NLL
   - shpb             : shots_per_basis, repeated for clarity
-
-The measurement data files also use the same suffix, so you can trace
-exactly which configuration and basis pool generated a given data set.
-
-All code uses only ASCII symbols.
 """
 
 import os
