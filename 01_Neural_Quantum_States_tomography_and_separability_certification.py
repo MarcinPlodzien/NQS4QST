@@ -162,7 +162,7 @@ FIGURES_DIR = "./figures_pure_states_NQS/"
 if not os.path.exists(FIGURES_DIR):
     os.makedirs(FIGURES_DIR)
 
-# Directory for raw simulated measurement data (ASCII text)
+ 
 MEAS_DIR = "./measurement_data_pure_states"
 if not os.path.exists(MEAS_DIR):
     os.makedirs(MEAS_DIR)
@@ -495,7 +495,7 @@ def init_params(key: random.PRNGKey,
 
 
 # =====================================================================
-# Fidelity (diagnostic only)
+# Fidelity  
 # =====================================================================
 
 def fidelity(params: Dict[str, Dict[str, jnp.ndarray]],
@@ -906,8 +906,6 @@ def make_data_probs_from_target(target_amp: jnp.ndarray,
             if total_b > 0:
                 freqs = counts / float(total_b)
             else:
-                # In a degenerate case where this basis gets 0 shots
-                # (should not happen here), fall back to exact p.
                 freqs = np.asarray(probs_pool[b_idx], dtype=float)
             probs_list.append(jnp.array(freqs))
 
@@ -1022,7 +1020,7 @@ def nll_loss_snns_local(sub_params,
 
 
 # =====================================================================
-# Training loops (measurement-only)
+# Training loops 
 # =====================================================================
 
 def train_nns(key: random.PRNGKey,
@@ -1276,11 +1274,11 @@ def print_wavefunction_comparison(target_amp: jnp.ndarray,
     prints the full 2**N basis.
     """
     if(N <= 6):
-        # Defensive: normalize both states here
+      
         t_norm = jnp.sqrt(jnp.sum(jnp.abs(target_amp) ** 2))
         l_norm = jnp.sqrt(jnp.sum(jnp.abs(learned_amp) ** 2))
     
-        # Avoid division by zero in case of numerical disasters
+  
         if float(t_norm) == 0.0:
             raise ValueError("Target amplitude vector has zero norm.")
         if float(l_norm) == 0.0:
@@ -1491,8 +1489,7 @@ def plot_topology_graphs(N: int, ansatzes: List[Dict], cfg: Dict, viz_hidden: in
 
     if num_ans == 0:
         return
-
-    # --- choose a "square-ish" grid layout ---
+ 
     ncols = int(math.ceil(math.sqrt(num_ans)))
     nrows = int(math.ceil(num_ans / ncols))
 
@@ -1501,10 +1498,10 @@ def plot_topology_graphs(N: int, ansatzes: List[Dict], cfg: Dict, viz_hidden: in
     fig_height = 4.5 * nrows
     fig, axes = plt.subplots(nrows, ncols, figsize=(fig_width, fig_height))
 
-    # axes can be a single Axes, 1D array, or 2D array – normalize to flat list
+ 
     if isinstance(axes, np.ndarray):
         axes_flat = axes.flatten()
-    else:  # just a single Axes object
+    else:  
         axes_flat = [axes]
 
     # --- draw each ansatz topology ---
@@ -1548,19 +1545,11 @@ def plot_topology_graphs(N: int, ansatzes: List[Dict], cfg: Dict, viz_hidden: in
 
         ax.set_title(name, fontsize=12, fontweight="bold")
         ax.axis("off")
-
-    # Hide any unused axes (when grid has more slots than ansatzes)
+ 
     for j in range(len(ansatzes), len(axes_flat)):
         axes_flat[j].axis("off")
 
-    # shots_pb = cfg.get("shots", 0)
-    # shots_tag = "inf" if shots_pb <= 0 else str(shots_pb)
-    # plt.suptitle(
-    #     "Ansatz Topologies\nN = {}, Bases = {}, Shots_per_basis = {}".format(
-    #         cfg["N"], cfg["measurement_bases"], shots_tag
-    #     ),
-    #     fontsize=16,
-    # )
+ 
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     suffix = config_suffix(cfg)
     filename = FIGURES_DIR + f"fig_nns_snns_topology_{suffix}.png"
@@ -1663,7 +1652,7 @@ def run_experiment(cfg: Dict):
     if cfg["loss_mode"] != "measurements":
         raise ValueError("Only measurement-based training is supported.")
 
-    # Enforce shots == shots_per_basis and propagate to both keys
+ 
     shots_pb = cfg.get("shots_per_basis", None)
     shots_cfg = cfg.get("shots", None)
 
@@ -1679,7 +1668,7 @@ def run_experiment(cfg: Dict):
 
     cfg["shots"] = shots_cfg
     cfg["shots_per_basis"] = shots_pb
-    shots = shots_pb  # use this as shots_per_basis everywhere
+    shots = shots_pb  
 
     seed = cfg["seed"]
     N = cfg["N"]
@@ -1702,8 +1691,6 @@ def run_experiment(cfg: Dict):
     results_loss = []
     results_fid = []
 
-    # We will set nbases_effective and shots_per_basis_nominal after
-    # the first call to make_data_probs_from_target.
     suffix_params_initialized = False
 
     print("\n====================================")
@@ -1727,23 +1714,18 @@ def run_experiment(cfg: Dict):
             num_random_bases=num_random_bases,
         )
 
-        # Encode bases as integer axes for the NLL.
         basis_axes_array = encode_basis_specs_to_axes(basis_specs, N)
 
-        # Initialize filename suffix parameters once, based on the effective
-        # number of bases in use (same for all target cases).
         if not suffix_params_initialized:
             nbases_effective = len(basis_specs)
             cfg["nbases_effective"] = nbases_effective
             if shots is None or shots <= 0:
                 cfg["shots_per_basis_nominal"] = "inf"
             else:
-                # Here "nominal" is exactly the configured shots_per_basis.
                 cfg["shots_per_basis_nominal"] = shots
             suffix_params_initialized = True
 
-        # Save raw measurement shots, if any (also useful if you want to
-        # simulate training from actual experimental data later).
+  
         save_measurement_data(N, measurements, case_cfg, cfg)
 
         case_loss_dict = {}
@@ -1771,8 +1753,7 @@ def run_experiment(cfg: Dict):
                     log_every=log_every,
                 )
 
-                # Learned wavefunction in Z basis (not explicitly normalized here;
-                # the comparison helper will normalize internally).
+
                 psi_learned_Z = nns_wavefunction(params, all_s)
 
             elif ans_type == "SNNS":
@@ -1797,20 +1778,18 @@ def run_experiment(cfg: Dict):
             else:
                 raise ValueError("Unknown ansatz type '{}'".format(ans_type))
 
-            # Print a simple loss monitor: loss vs epoch (only ASCII).
             print("    Loss monitor for ansatz '{}':".format(ans_name))
             for s_step, L in zip(steps, loss_hist):
                 print("      epoch {:4d}: loss = {:.6f}".format(int(s_step), float(L)))
 
-            # After training, print basis-by-basis comparison of amplitudes
-            # in the computational Z basis.
+    
             print_wavefunction_comparison(
                 target_amp=target_amp,
                 learned_amp=psi_learned_Z,
                 N=N,
                 case_name=case_name,
                 ansatz_name=ans_name,
-                max_rows=2**N  # for N=6 this prints all 64 states
+                max_rows=2**N  
             )
 
             case_loss_dict[ans_name] = (steps, np.array(loss_hist))
@@ -1819,9 +1798,8 @@ def run_experiment(cfg: Dict):
         results_loss.append((case_name, case_loss_dict))
         results_fid.append((case_name, case_fid_dict))
 
-    # Plot global grids of loss and fidelity across cases and ansatzes.
+    
     plot_results_grid(results_loss, results_fid, ansatzes, cfg)
-    # Plot schematic ansatz topologies (independent of target case).
     plot_topology_graphs(N, ansatzes, cfg, viz_hidden=12)
 
 
