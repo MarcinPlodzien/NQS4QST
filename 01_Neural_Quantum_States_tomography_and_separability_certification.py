@@ -158,7 +158,7 @@ import time
 jax.config.update("jax_enable_x64", True)
 
 # Make directory for figures
-FIGURES_DIR = "./figures_pure_states_NQS"
+FIGURES_DIR = "./figures_pure_states_NQS/"
 if not os.path.exists(FIGURES_DIR):
     os.makedirs(FIGURES_DIR)
 
@@ -1563,7 +1563,8 @@ def plot_topology_graphs(N: int, ansatzes: List[Dict], cfg: Dict, viz_hidden: in
     # )
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     suffix = config_suffix(cfg)
-    plt.savefig(f"./fig_nns_snns_topology_{suffix}.png", dpi=300)
+    filename = FIGURES_DIR + f"fig_nns_snns_topology_{suffix}.png"
+    plt.savefig(filename, dpi=300)
     plt.show()
 
 
@@ -1609,7 +1610,8 @@ def plot_results_grid(results_loss, results_fid, ansatzes, cfg):
         fontsize=16
     )
     plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig("./figures/fig_nns_snns_loss_{}.png".format(suffix), dpi=300)
+    filename = FIGURES_DIR + "Fig_nns_snns_loss_{}.png".format(suffix)
+    plt.savefig(filename, dpi=300)
     plt.show()
 
     # Fidelity grid
